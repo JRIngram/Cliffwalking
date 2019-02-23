@@ -98,6 +98,8 @@ class Grid():
 class q_approx():
     location = [None,None]
     epsilon = 0
+    epsilon_decay = 0
+    epsilon_minimum = 0.05
     rand = None
     discount = 0
     target_net = None
@@ -110,9 +112,10 @@ class q_approx():
     
     score = 0
     
-    def __init__(self, starting_location, epsilon, discount, memory_size=32, sample_size=10, reset_steps = 128):
+    def __init__(self, starting_location, epsilon, discount, epsilon_decay=0.05, memory_size=100, sample_size=32, reset_steps = 500):
         self.location = [int(starting_location[0]), int(starting_location[1])]
         self.epsilon = epsilon
+        self.epsilon_decay = epsilon_decay
         self.rand = random.Random()
         self.discount = discount
         self.event_memory = []
@@ -262,20 +265,34 @@ class q_approx():
         self.location[1] = location[1] 
 
     def finish_episode(self,previous_state, action, reward):
+        self.decay_epsilon()
         return False 
     
     def remember_state_action(self, previous_state, action, reward, next_state, terminal):
+        """
+        Adds a state-action-reward-next_state-terminal_state array to memory
+        This can then be replayed in event recall.
+        """
         memory = [previous_state, [action[0], action[1]], reward, next_state, terminal]
         self.event_memory.append(memory)
         if len(self.event_memory) > self.memory_size:
             self.event_memory.pop(0)
         return False
+    
+    def decay_epsilon(self):
+        if self.epsilon > self.epsilon_minimum:
+            self.epsilon = self.epsilon * (1 - self.epsilon_decay)
+            if self.epsilon < self.epsilon_minimum:
+                self.epsilon = self.epsilon_minimum
 
-q_approx_grid = Grid(100)
-dqn = q_approx(q_approx_grid.location, 0.3, 0.2, 30)
+q_approx_grid = Grid(2000)
+dqn = q_approx(q_approx_grid.location, 1, 0.99, epsilon_decay=0.01,memory_size=100, sample_size=32, reset_steps = 100000)
 q_approx_grid.set_agent(dqn)
 
 print(str(q_approx_grid) + "\n\n\n\n\n\n\n\n\n\n\n")
 while(q_approx_grid.current_episode < q_approx_grid.episodes):
     #dqn grid
-    q_approx_grid.make_move()  
+    q_approx_grid.make_move()
+
+print(str(q_approx_grid.agent.query(np.array([[3, 0, -1, 0]]))))
+print(str(q_approx_grid.agent.query(np.array([[3, 0, 0, 1]]))))
