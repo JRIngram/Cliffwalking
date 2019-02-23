@@ -68,12 +68,14 @@ class Grid():
             #Terminal State
             self.agent.remember_state_action(original_location, move, reward, new_location, True)
             self.agent.update_approximater()
+            self.agent.reset_approximaters()
             self.finish_episode(original_location, move, reward)
         else:
             #Non-Terminal State
             self.agent.remember_state_action(original_location, move, reward, new_location, False)
             self.agent.update_score(reward)
             self.agent.update_approximater()
+            self.agent.reset_approximaters()
     
     def finish_episode(self, original_location, move, reward):
         self.agent.update_score(reward)
@@ -103,11 +105,12 @@ class q_approx():
     event_memory = None
     memory_size = 0
     sample_size = 0
+    steps_taken = 0
     reset_steps = 0
     
     score = 0
     
-    def __init__(self, starting_location, epsilon, discount, memory_size=32, sample_size=10, reset_steps = 32):
+    def __init__(self, starting_location, epsilon, discount, memory_size=32, sample_size=10, reset_steps = 128):
         self.location = [int(starting_location[0]), int(starting_location[1])]
         self.epsilon = epsilon
         self.rand = random.Random()
@@ -129,6 +132,10 @@ class q_approx():
         self.target_net = deepcopy(self.current_net)
         
     def get_possible_actions(self, location=None):
+        """
+        Returns all valid moves from a location
+        If location = None then the agent's current location is used.
+        """
         if location == None:
             location = self.location 
         possible_actions = []  
@@ -160,7 +167,10 @@ class q_approx():
         return possible_actions
 
     
-    def make_move(self):   
+    def make_move(self):  
+        """
+        Gather all possible moves, then chooses either the move with maximum predicted reward or a random move.
+        """ 
         #Gather all action values
         possible_actions = self.get_possible_actions()
         for x in range(len(possible_actions)):
@@ -178,9 +188,15 @@ class q_approx():
             #Choose a random action
             x = self.rand.randrange(0,len(possible_actions))
             move = possible_actions[x]
+        self.steps_taken = self.steps_taken + 1
         return move
     
     def query(self, state_action, current_net=True):
+        """
+        Returns a predicted value for a state-action pair.
+        If current_net is true then the current_net is used for this prediction.
+        If current_net is false then the target_net is used for this prediction.
+        """
         if(current_net == True):
             value_prediction = self.current_net.predict(state_action, batch_size=1)[0,0]
         else:
@@ -188,6 +204,13 @@ class q_approx():
         return value_prediction
     
     def update_approximater(self):
+        """
+        Replays N memories.
+        Updates the current_net based on a target which is:
+            reward from the state (if terminal state)
+            Max predicted reward from next state (if non-terminal state)
+        Gradient descent is then performed on the current_net
+        """
         if len(self.event_memory) < self.sample_size:
             memory_samples = random.sample(self.event_memory, len(self.event_memory))
         else:
@@ -216,15 +239,25 @@ class q_approx():
                     
                 target = np.array([reward + (self.discount * max_value_move[2])])
                 self.current_net.fit(state_action, target,verbose=0)
-                #print("Target: " + str(target))
-                #print("Prediction: " + str(self.current_net.predict(state_action)))
-                x=1
         return False 
-                
+    
+    def reset_approximaters(self):
+        """
+        Sets the target_net to the current_net every fixed amount of steps
+        """
+        if self.steps_taken % self.reset_steps == 0:
+            self.target_net = deepcopy(self.current_net)
+    
     def update_score(self, score):
+        """
+        Updates the agent score based on the reward received.
+        """
         self.score = self.score + score   
         
     def set_agent_location(self, location):
+        """
+        Moves the agent to a located determined by input parameters.
+        """
         self.location[0] = location[0]
         self.location[1] = location[1] 
 
