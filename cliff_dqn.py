@@ -224,11 +224,11 @@ class q_approx():
             reward = memory[2]
             next_state = memory[3]
             
+            state_action = np.array([[previous_state[0], previous_state[1], action[0], action[1]]])
             if memory[4] == True:
-                target = reward
+                target = np.array([reward])
             else:            
                 #Calculate max potential value from next state
-                state_action = np.array([[previous_state[0], previous_state[1], action[0], action[1]]])
                 next_possible_actions = self.get_possible_actions([next_state[0], next_state[1]])
                 for x in range(len(next_possible_actions)):
                     state_action = np.array([[next_state[0], next_state[0], next_possible_actions[x][0], next_possible_actions[x][1]]])
@@ -241,7 +241,7 @@ class q_approx():
                     
                     
                 target = np.array([reward + (self.discount * max_value_move[2])])
-                self.current_net.fit(state_action, target,verbose=0)
+            self.current_net.fit(state_action, target,verbose=0)
         return False 
     
     def reset_approximaters(self):
