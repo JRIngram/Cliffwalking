@@ -231,7 +231,7 @@ class q_approx():
                 #Calculate max potential value from next state
                 next_possible_actions = self.get_possible_actions([next_state[0], next_state[1]])
                 for x in range(len(next_possible_actions)):
-                    state_action = np.array([[next_state[0], next_state[0], next_possible_actions[x][0], next_possible_actions[x][1]]])
+                    state_action = np.array([[next_state[0], next_state[1], next_possible_actions[x][0], next_possible_actions[x][1]]])
                     next_possible_actions[x].append(self.query(state_action, False))
                 
                 max_value_move = next_possible_actions[0] 
@@ -285,8 +285,8 @@ class q_approx():
             if self.epsilon < self.epsilon_minimum:
                 self.epsilon = self.epsilon_minimum
 
-q_approx_grid = Grid(2000)
-dqn = q_approx(q_approx_grid.location, 1, 0.99, epsilon_decay=0.01,memory_size=100, sample_size=32, reset_steps = 100000)
+q_approx_grid = Grid(250)
+dqn = q_approx(q_approx_grid.location, 1, 0.99, epsilon_decay=0.01,memory_size=1000, sample_size=50, reset_steps = 100000)
 q_approx_grid.set_agent(dqn)
 
 print(str(q_approx_grid) + "\n\n\n\n\n\n\n\n\n\n\n")
