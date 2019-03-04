@@ -21,16 +21,16 @@ class Grid():
     agent = None
     episodes = 0
     current_episode = 0
-    
-    def __init__(self, episodes):    
-        self.grid = [[-1] * 12,[-1] * 12,[-1] * 12,[-1, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, 0]]
+
+    def __init__(self, episodes):
+        self.grid = [[-1] * 12,[-1] * 12,[-1] * 12,[-1, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, -0]]
         self.start = self.grid[3][0]
         self.goal = self.grid[3][11]
         self.location[0] = 3
         self.location[1] = 0
         self.episodes = episodes
-        self.actions = [[0,-1],[0,1],[-1,0],[1,0]]
-    
+        self.actions = [[-1,0],[1,0],[0,-1],[0,1]]
+
     def __str__(self):
         grid_string="____________\n"
         for x in range(len(self.grid)):
@@ -41,7 +41,7 @@ class Grid():
                         row = str(row) + "|*"
                     else:
                         row = str(row) + "|X"
-            
+
             else:
                 for y in range(len(self.grid[x])):
                     if x == self.location[0] and y == self.location[1]:
@@ -54,10 +54,10 @@ class Grid():
                         row = str(row) + "|C"
             grid_string = grid_string + row + "|\n"
         return grid_string
-    
+
     def set_agent(self, agent):
         self.agent = agent
-    
+
     def make_move(self):
         original_location = copy.deepcopy(self.agent.location)
         #Select an action to take
@@ -72,13 +72,13 @@ class Grid():
         #print("Valid move:\t" + str(move[1]))
         #print("New state:\t" + str(self.agent.location))
         reward = self.grid[self.location[0]][self.location[1]]
-        
+
         move_index = 0
         #get action index
         for x in range(0,4):
             if move[0] == self.actions[x]:
                 move_index = x
-        
+
         if reward == -100 or (self.location[0] == 3 and self.location[1] == 11):
             #Terminal State
             self.agent.remember_state_action(original_location, move_index, reward, new_location, True)
@@ -91,11 +91,10 @@ class Grid():
             self.agent.update_score(reward)
             self.agent.update_approximater()
             self.agent.reset_approximaters()
-    
+
     def finish_episode(self, original_location, move, reward):
         self.agent.update_score(reward)
         self.agent.set_agent_location(self.location)
-        self.agent.update_approximater()
         print(str(self))
         finish_string = str("Episode: " + str(self.current_episode+1) + ". Score: " + str(self.agent.score))
         if(self.agent.location[0] == 3 and self.agent.location[1] == 11):
@@ -110,18 +109,18 @@ class Grid():
         self.agent.finish_episode(self.agent.location, move, reward)
         self.location = [3,0]
         self.agent.set_agent_location(self.location)
-        
+
 class q_approx():
     """
     [0,-1] 0
     [0,1] 1
     [-1,0] 2
     [1,0] 3
-    """    
+    """
     location = [None,None]
     epsilon = 0
     epsilon_decay = 0
-    epsilon_minimum = 0.05
+    epsilon_minimum = 0.1
     rand = None
     discount = 0
     target_net = None
@@ -131,10 +130,10 @@ class q_approx():
     sample_size = 0
     steps_taken = 0
     reset_steps = 0
-    
+
     score = 0
     scores = []
-    
+
     def __init__(self, starting_location, epsilon, discount, epsilon_decay=0.05, memory_size=100, sample_size=32, reset_steps = 500):
         self.location = [int(starting_location[0]), int(starting_location[1])]
         self.epsilon = epsilon
@@ -144,8 +143,8 @@ class q_approx():
         self.event_memory = []
         self.memory_size = memory_size
         self.sample_size = sample_size
-        self.reset_steps = reset_steps 
-        
+        self.reset_steps = reset_steps
+
         #Initialize action-value function Q with random weights
         self.current_net = Sequential()
         self.current_net.add(Dense(3, input_dim=2, activation='tanh'))
@@ -153,18 +152,18 @@ class q_approx():
         self.current_net.compile(loss='mean_squared_error',
               optimizer='adam',
               metrics=['accuracy'])
-        
+
         #Initialize target action-value function Q
         self.target_net = deepcopy(self.current_net)
-        
+
     def get_possible_actions(self, location=None):
         """
         Returns all valid moves from a location
         If location = None then the agent's current location is used.
         """
         if location == None:
-            location = self.location 
-        possible_actions = []  
+            location = self.location
+        possible_actions = []
         #vertical moves
         if location[0] != 0 and location[0] != 3:
             #Can move up or down
@@ -185,7 +184,7 @@ class q_approx():
             action = [[1,0], False]
             possible_actions.append(action)
 
-            
+
         #horizontal moves
         if location[1] != 0 and location[1] != 11:
             #Can move left or right
@@ -198,21 +197,21 @@ class q_approx():
             action = [[0,-1], False]
             possible_actions.append(action)
             action = [[0,1], True]
-            possible_actions.append(action) 
+            possible_actions.append(action)
         elif location[1] == 11:
             #Can move only left
             action = [[0,-1], True]
             possible_actions.append(action)
             action = [[0,1], False]
-            possible_actions.append(action) 
+            possible_actions.append(action)
 
         return possible_actions
 
-    
-    def make_move(self):  
+
+    def make_move(self):
         """
         Gather all possible moves, then chooses either the move with maximum predicted reward or a random move.
-        """ 
+        """
         #Gather all action values
         possible_actions = self.get_possible_actions()
         state = np.array([[self.location[0], self.location[1]]])
@@ -225,8 +224,8 @@ class q_approx():
                 possible_actions[array_index].append(reward)
             else:
                 possible_actions[array_index].append(0)
-            
-        
+
+
         choose_optimal = self.rand.random()
         move = None
         if choose_optimal > self.epsilon:
@@ -246,7 +245,7 @@ class q_approx():
                 move = possible_actions[random_move]
         self.steps_taken = self.steps_taken + 1
         return move
-    
+
     def query(self, state, current_net=True):
         """
         Returns a predicted value for a state-action pair.
@@ -258,7 +257,7 @@ class q_approx():
         else:
             value_prediction = self.target_net.predict(state, batch_size=1)
         return value_prediction
-    
+
     def update_approximater(self):
         """
         Replays N memories.
@@ -271,6 +270,8 @@ class q_approx():
             memory_samples = random.sample(self.event_memory, len(self.event_memory))
         else:
             memory_samples = random.sample(self.event_memory, self.sample_size)
+        
+        
         for memory in memory_samples:
             previous_state = memory[0]
             action = memory[1]
@@ -278,13 +279,14 @@ class q_approx():
             next_state = memory[3]
             
             state = np.array([[previous_state[0], previous_state[1]]])
+            
             if memory[4] == True:
                 target = np.array([reward])
-            else:            
+            else:
                 #Calculate max potential value from next state
                 next_possible_actions = self.get_possible_actions([next_state[0], next_state[1]])
-                state = np.array([[next_state[0], next_state[1]]])
-                next_possible_rewards = (self.query(state, False))              
+                next_state = np.array([[next_state[0], next_state[1]]])
+                next_possible_rewards = (self.query(next_state, False))
                 max_value_move = None
                 for x in range(len(next_possible_actions)):
                     if next_possible_actions[x][1] == True:
@@ -292,8 +294,8 @@ class q_approx():
                             max_value_move = x
                         if next_possible_rewards[0,x] > next_possible_rewards[0, max_value_move]:
                             max_value_move = x
-                    
-                    
+
+                
                 target = np.array([reward + (self.discount * next_possible_rewards[0, max_value_move])])
             #Update original prediction to become the "target"
             original_prediction = self.target_net.predict(np.array([[previous_state[0], previous_state[1]]]))
@@ -301,37 +303,39 @@ class q_approx():
             for x in range (0,4):
                 if action == x:
                     target_array.append(target[0])
-                else: 
+                else:
                     target_array.append(original_prediction[0,x])
-            
+
+            #print(str(self.target_net.predict(np.array([[previous_state[0], previous_state[1]]]))))
             net_target = np.array([[target_array[0], target_array[1], target_array[2], target_array[3]]])
             self.current_net.fit(state, net_target,verbose=0)
-        return False 
-    
+            #print(str(self.current_net.predict(np.array([[previous_state[0], previous_state[1]]]))))
+        return False
+
     def reset_approximaters(self):
         """
         Sets the target_net to the current_net every fixed amount of steps
         """
         if self.steps_taken % self.reset_steps == 0:
             self.target_net = deepcopy(self.current_net)
-    
+
     def update_score(self, score):
         """
         Updates the agent score based on the reward received.
         """
-        self.score = self.score + score   
-        
+        self.score = self.score + score
+
     def set_agent_location(self, location):
         """
         Moves the agent to a located determined by input parameters.
         """
         self.location[0] = location[0]
-        self.location[1] = location[1] 
+        self.location[1] = location[1]
 
     def finish_episode(self,previous_state, action, reward):
         self.decay_epsilon()
-        return False 
-    
+        return False
+
     def remember_state_action(self, previous_state, action, reward, next_state, terminal):
         """
         Adds a state-action-reward-next_state-terminal_state array to memory
@@ -342,7 +346,7 @@ class q_approx():
         if len(self.event_memory) > self.memory_size:
             self.event_memory.pop(0)
         return False
-    
+
     def decay_epsilon(self):
         if self.epsilon > self.epsilon_minimum:
             self.epsilon = self.epsilon * (1 - self.epsilon_decay)
@@ -350,21 +354,27 @@ class q_approx():
                 self.epsilon = self.epsilon_minimum
 
 q_approx_grid = Grid(250)
-dqn = q_approx(q_approx_grid.location, 1, 0.99, epsilon_decay=0.01,memory_size=1000, sample_size=50, reset_steps = 100)
+dqn = q_approx(q_approx_grid.location, 1, 0.99, epsilon_decay=0.01,memory_size=1000, sample_size=32, reset_steps = 500)
 q_approx_grid.set_agent(dqn)
 
 print(str(q_approx_grid) + "\n\n\n\n\n\n\n\n\n\n\n")
 while(q_approx_grid.current_episode < q_approx_grid.episodes):
     #dqn grid
     q_approx_grid.make_move()
-    
-    
-filename = (str("q_approx_results/results_") + str(datetime.datetime.now()) + str(".txt"))
+
+
+filename = (str("q_approx_results2/results_") + str(datetime.datetime.now()) + str(".txt"))
 file = open(filename, "w+", newline="\n")
 for x in range(0, len(dqn.scores)):
     file.write(str(x+1) + "," + str(dqn.scores[x]) + "\n")
 file.close()
-print(str("Initial move up: ") + str(q_approx_grid.agent.query(np.array([[3, 0, -1, 0]]))))
-print(str("Initial move off cliff: ") + str(q_approx_grid.agent.query(np.array([[3, 0, 0, 1]]))))
-print(str("Move to goal state: ") + str(q_approx_grid.agent.query(np.array([[2, 11, 0, 1]]))))
 
+filename = (str("monitoring") + str(".txt"))
+file = open(filename, "a", newline="\n")
+file.write(str("DQN2 Test completed. Episode reached: " + str(q_approx_grid.current_episode)) + str(" at ") + str(datetime.datetime.now()) + str("\n"))
+file.close()
+
+print(str("Initial move up: ") + str(q_approx_grid.agent.query(np.array([[3, 0]]))))
+print(str("Initial move off cliff: ") + str(q_approx_grid.agent.query(np.array([[3, 0]]))))
+print(str("Move to goal state: ") + str(q_approx_grid.agent.query(np.array([[2, 11]]))))
+print(str(q_approx_grid.agent.epsilon))
