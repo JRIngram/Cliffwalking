@@ -84,15 +84,17 @@ class Grid():
             self.agent.remember_state_action(original_location, move_index, reward, new_location, True)
             self.agent.update_approximater()
             self.agent.reset_approximaters()
-            self.finish_episode(original_location, move, reward)
+            self.finish_episode(reward)
         else:
             #Non-Terminal State
             self.agent.remember_state_action(original_location, move_index, reward, new_location, False)
             self.agent.update_score(reward)
             self.agent.update_approximater()
             self.agent.reset_approximaters()
+            if self.agent.score <= self.agent.minimum_score:
+                self.finish_episode(0) 
 
-    def finish_episode(self, original_location, move, reward):
+    def finish_episode(self, reward):
         self.agent.update_score(reward)
         self.agent.set_agent_location(self.location)
         print(str(self))
@@ -106,7 +108,7 @@ class Grid():
         self.agent.scores.append(self.agent.score)
         self.agent.score = 0
         self.current_episode = self.current_episode + 1
-        self.agent.finish_episode(self.agent.location, move, reward)
+        self.agent.finish_episode()
         self.location = [3,0]
         self.agent.set_agent_location(self.location)
 
@@ -130,11 +132,12 @@ class q_approx():
     sample_size = 0
     steps_taken = 0
     reset_steps = 0
+    minimum_score = 0
 
     score = 0
     scores = []
 
-    def __init__(self, starting_location, epsilon, discount, epsilon_decay=0.05, memory_size=100, sample_size=32, reset_steps = 500):
+    def __init__(self, starting_location, epsilon, discount, epsilon_decay=0.05, memory_size=100, sample_size=32, reset_steps = 500, minimum_score = -100):
         self.location = [int(starting_location[0]), int(starting_location[1])]
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
@@ -144,6 +147,7 @@ class q_approx():
         self.memory_size = memory_size
         self.sample_size = sample_size
         self.reset_steps = reset_steps
+        self.minimum_score = minimum_score
 
         #Initialize action-value function Q with random weights
         self.current_net = Sequential()
@@ -332,7 +336,7 @@ class q_approx():
         self.location[0] = location[0]
         self.location[1] = location[1]
 
-    def finish_episode(self,previous_state, action, reward):
+    def finish_episode(self):
         self.decay_epsilon()
         return False
 
@@ -353,8 +357,8 @@ class q_approx():
             if self.epsilon < self.epsilon_minimum:
                 self.epsilon = self.epsilon_minimum
 
-q_approx_grid = Grid(250)
-dqn = q_approx(q_approx_grid.location, 1, 0.99, epsilon_decay=0.01,memory_size=1000, sample_size=32, reset_steps = 500)
+q_approx_grid = Grid(500)
+dqn = q_approx(q_approx_grid.location, 1, 0.99, epsilon_decay=0.01,memory_size=1000, sample_size=32, reset_steps = 500, minimum_score=-100)
 q_approx_grid.set_agent(dqn)
 
 print(str(q_approx_grid) + "\n\n\n\n\n\n\n\n\n\n\n")
