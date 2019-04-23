@@ -1,6 +1,7 @@
 import random
 import time
 import copy
+import datetime
 from random import Random
 from copy import deepcopy
 
@@ -19,7 +20,10 @@ class Grid():
     episodes = 0
     current_episode = 0
     
-    def __init__(self, episodes):    
+    def __init__(self, episodes):
+        """
+        Creates a 13 by 3 Grid and sets the number of episodes.
+        """
         self.grid = [[-1] * 12,[-1] * 12,[-1] * 12,[-1, -100, -100, -100, -100, -100, -100, -100, -100, -100, -100, 0]]
         self.start = self.grid[3][0]
         self.goal = self.grid[3][11]
@@ -28,6 +32,9 @@ class Grid():
         self.episodes = episodes
     
     def __str__(self):
+        """
+        Prints the Gridworld and the agent's placement on the grid.
+        """
         grid_string="____________\n"
         for x in range(len(self.grid)):
             row = ""
@@ -52,27 +59,37 @@ class Grid():
         return grid_string
     
     def set_agent(self, agent):
+        """
+        Set the agent to be used in the Gridworld
+        """
         self.agent = agent
     
     def make_move(self):
+        """
+        Have the agent make a move and apply reward/punishments. Store state-action-reward in memory
+        """
         original_location = copy.deepcopy(self.agent.location)
         move = self.agent.make_move()
         self.location[0] = self.location[0] + move[0]
         self.location[1] = self.location[1] + move[1]
         reward = self.grid[self.location[0]][self.location[1]]
         if reward == -100 or (self.location[0] == 3 and self.location[1] == 11):
-            if (self.location[0] == 3 and self.location[1] == 11):
-                x=1
             self.finish_episode(original_location, move, reward)
         else:
             self.agent.update_score(reward)
             self.agent.set_agent_location(self.location)
             self.agent.update_table(original_location, move, reward)
+            if self.agent.score <= self.agent.minimum_score:
+                self.finish_episode() 
     
     def finish_episode(self, original_location, move, reward):
+        """
+        Finish the current episode. Print if goal state reached and print final score.
+        """
         self.agent.update_score(reward)
         self.agent.set_agent_location(self.location)
-        self.agent.update_table(original_location, move, reward, True)
+        self.agent.update_table(original_location, move, reward)
+        self.agent.scores.append(self.agent.score)
         print(str(self))
         finish_string = str("Episode: " + str(self.current_episode+1) + ". Score: " + str(self.agent.score))
         if(self.agent.location[0] == 3 and self.agent.location[1] == 11):
@@ -80,10 +97,9 @@ class Grid():
             finish_string = finish_string + str("\t\tCorrect location reached!")
         print(finish_string)
         print("\n\n\n\n\n\n\n\n\n")
-        #time.sleep(1.75)
         self.agent.score = 0
         self.current_episode = self.current_episode + 1
-        self.agent.finish_episode(self.agent.location, move, reward)
+        self.agent.finish_episode()
         self.location = [3,0]
         self.agent.set_agent_location(self.location)
 
@@ -94,18 +110,26 @@ class qlearning():
     epsilon = 0
     q_table = {}
     rand = None
-    score = 0
     step_size = 0
     discount = 0
+    score = 0
+    scores = []
     
-    def __init__(self, starting_location, epsilon, step_size, discount):
+    def __init__(self, starting_location, epsilon, step_size, discount,epsilon_decay=0.05, epsilon_minumum=0.01, minimum_score=-250):
         self.location = [int(starting_location[0]), int(starting_location[1])]
         self.epsilon = epsilon
         self.rand = random.Random()
         self.step_size = step_size
         self.discount = discount
+        self.epsilon_decay = epsilon_decay
+        self.epsilon_minimum = epsilon_minumum
+        self.minimum_score = minimum_score
         
     def get_possible_actions(self, location=None):
+        """
+        Returns all valid moves from a location
+        If location = None then the agent's current location is used.
+        """
         if location == None:
             location = self.location 
         possible_actions = []  
@@ -136,7 +160,10 @@ class qlearning():
             possible_actions.append(action)
         return possible_actions
     
-    def make_move(self):   
+    def make_move(self): 
+        """
+        Gather all possible moves, then chooses either the move with maximum predicted reward or a random move.
+        """  
         possible_actions = self.get_possible_actions()
         state_string = str(self.location[0]) + "," + str(self.location[1])
         for x in range(len(possible_actions)):
@@ -155,12 +182,18 @@ class qlearning():
         return move
     
     def query(self, state):
+        """
+        Returns a predicted value for a state-action pair.
+        """
         #Checks table for value of state
         if state not in self.q_table:
                 self.q_table[state] = 0
         return self.q_table[state]
     
-    def update_table(self, previous_state, action, reward, terminal=False):
+    def update_table(self, previous_state, action, reward):
+        """
+        Updates the look-up table that is queried make moves
+        """
         #Partially updates recorded reward of a state by the stepsize
         table_key = str(previous_state[0]) + "," + str(previous_state[1]) + "," + str(action[0]) + "," + str(action[1])
         possible_actions = self.get_possible_actions()
@@ -174,21 +207,50 @@ class qlearning():
         
     
     def set_agent_location(self, location):
+        """
+        Moves the agent to a located determined by input parameters.
+        """
         self.location[0] = location[0]
         self.location[1] = location[1]
     
     def update_score(self, score):
+        """
+        Updates the agent score based on the reward received.
+        """
         self.score = self.score + score     
         
-    def finish_episode(self,previous_state, action, reward):
+    def finish_episode(self):
+        """
+        Performs the actions related to the ending of an episode.
+        """
+        self.decay_epsilon()
         return False   
+    
+    def decay_epsilon(self):
+        """
+        Decays the epsilon by a fixed amount defined during construction, if epsilon is above epsilon minimum
+        """
+        if self.epsilon > self.epsilon_minimum:
+            self.epsilon = self.epsilon * (1 - self.epsilon_decay)
+            if self.epsilon < self.epsilon_minimum:
+                self.epsilon = self.epsilon_minimum
         
 #Set up for q_learning grid
-q_grid = Grid(5000)
-qlearn = qlearning(q_grid.location, 0.05, 0.2, 1.0)
+q_grid = Grid(2000)
+qlearn = qlearning(q_grid.location, 1, 0.2, discount=0.99, epsilon_decay=0.01, epsilon_minumum=0.01, minimum_score=-250)
 q_grid.set_agent(qlearn)
 
 print(str(q_grid) + "\n\n\n\n\n\n\n\n\n\n\n")
 while (q_grid.current_episode < q_grid.episodes):
-    #q_learning grid
     q_grid.make_move()
+
+#Saves results to .csv file.
+try:
+    filename = (str("results/qlearn_") + str(datetime.datetime.now()) + str(".csv"))
+    file = open(filename, "w+", newline="\n")
+    for x in range(0, len(qlearn.scores)):
+        file.write(str(x+1) + "," + str(qlearn.scores[x]) + "\n")
+    file.close()
+except:
+    print("ERROR: creating results file. Have you created the `results` directory?")
+
